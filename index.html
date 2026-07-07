@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>正齒輪 DXF 產生器</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">八德國中生活科技工具</p>
+        <h1>正齒輪 DXF 產生器</h1>
+      </div>
+      <div class="actions">
+        <label class="download-target">
+          下載目標
+          <select id="downloadTarget">
+            <option value="all" selected>全部</option>
+            <option value="primary">第一個</option>
+            <option value="secondary">第二個</option>
+          </select>
+        </label>
+        <button id="downloadDxf" type="button" title="下載 DXF 檔">下載 DXF</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel controls" aria-label="齒輪參數">
+        <section>
+          <h2>齒輪設定</h2>
+          <label>
+            產生類型
+            <select id="gearType">
+              <option value="external" selected>外齒輪</option>
+              <option value="rack">齒條</option>
+              <option value="internal">內齒輪</option>
+            </select>
+            <span class="hint">選擇要繪製的機構。外齒輪適合兩軸嚙合，齒條會把旋轉轉成直線運動，內齒輪會在環形內側嚙合。</span>
+          </label>
+          <label>
+            顯示數量
+            <select id="gearCount">
+              <option value="1">一個</option>
+              <option value="2" selected>兩個</option>
+            </select>
+            <span class="hint">選兩個時會顯示嚙合狀態與中心距，也會一起匯出到 DXF。</span>
+          </label>
+          <label>
+            齒數
+            <input id="teeth" type="number" min="6" max="160" step="1" value="24">
+            <span class="hint">齒越多，齒輪直徑越大、轉動越平順；齒越少，齒較大但較容易干涉或根切。</span>
+          </label>
+          <label id="teeth2Field">
+            第二齒輪齒數
+            <input id="teeth2" type="number" min="6" max="160" step="1" value="16">
+            <span class="hint">改變第二齒輪大小與轉速比。兩個外齒輪時，齒數比會決定轉速比。</span>
+          </label>
+          <label>
+            模數 mm
+            <input id="module" type="number" min="0.2" max="12" step="0.1" value="2">
+            <span class="hint">模數是齒的大小。模數變大，齒距、齒高與整體直徑都會等比例變大。</span>
+          </label>
+          <label>
+            壓力角
+            <select id="pressureAngle">
+              <option value="14.5">14.5°</option>
+              <option value="20" selected>20°</option>
+              <option value="25">25°</option>
+            </select>
+            <span class="hint">壓力角會改變齒側斜度。角度越大，齒根通常較厚、接觸力方向也會改變。</span>
+          </label>
+          <label id="boreField">
+            中心孔直徑 mm
+            <input id="bore" type="number" min="0" max="200" step="0.5" value="3">
+            <span class="hint">設定軸孔大小。只影響中心孔，不改變齒形與節圓。</span>
+          </label>
+          <label id="bore2Field">
+            第二齒輪中心孔 mm
+            <input id="bore2" type="number" min="0" max="200" step="0.5" value="3">
+            <span class="hint">設定第二齒輪或小齒輪的軸孔大小，只影響該齒輪中心孔。</span>
+          </label>
+          <label>
+            輪廓位移
+            <input id="shift" type="number" min="-0.8" max="0.8" step="0.05" value="0">
+            <span class="hint">正值會讓齒根較厚、外徑略增；負值會讓齒較瘦，過低可能造成齒根太薄。</span>
+          </label>
+        </section>
+
+        <section>
+          <h2>顯示</h2>
+          <label class="check">
+            <input id="showGuides" type="checkbox" checked>
+            顯示節圓、基圓與外徑參考線
+            <span class="hint">參考線用來檢查齒形位置，不會匯出為 DXF 輪廓。</span>
+          </label>
+          <label class="check">
+            <input id="animatePreview" type="checkbox" checked>
+            播放轉動動畫
+            <span class="hint">只影響預覽，用來觀察嚙合方向與速度，不會改變 DXF。</span>
+          </label>
+        </section>
+
+        <section class="readout" aria-live="polite">
+          <h2>尺寸</h2>
+          <dl>
+            <div><dt id="pitchLabel">節圓直徑</dt><dd id="pitchDiameter">-</dd></div>
+            <div><dt id="outerLabel">外徑</dt><dd id="outerDiameter">-</dd></div>
+            <div><dt id="rootLabel">齒根圓直徑</dt><dd id="rootDiameter">-</dd></div>
+            <div><dt>基圓直徑</dt><dd id="baseDiameter">-</dd></div>
+            <div><dt>齒距</dt><dd id="circularPitch">-</dd></div>
+            <div><dt id="distanceLabel">中心距</dt><dd id="centerDistance">-</dd></div>
+          </dl>
+        </section>
+      </aside>
+
+      <section class="preview" aria-label="齒輪預覽">
+        <div class="canvas-toolbar">
+          <div>
+            <strong id="gearName">24 齒外齒輪</strong>
+            <span id="statusText">可下載 DXF 檔</span>
+          </div>
+          <button id="resetView" type="button" title="重設預覽">重設</button>
+        </div>
+        <svg id="gearSvg" role="img" aria-label="正齒輪輪廓預覽"></svg>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        <span>此工具可產生外齒輪、齒條與內齒輪的 2D DXF 輪廓，適合教學、雷射切割草圖與 3D 建模起點。</span>
+        <span>正式承載零件請再用 CAD/CAM 驗證材料、公差與加工刀徑。</span>
+      </p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
