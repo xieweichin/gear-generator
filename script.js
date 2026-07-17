@@ -302,17 +302,56 @@ function buildRack(params, options = {}) {
   const clearance = params.module * backlashFactor;
   const halfTop = Math.max(0.06 * pitch, params.module * (Math.PI / 4 - Math.tan(params.pressureAngle)) - clearance / 2);
   const halfRoot = Math.min(pitch * 0.45, pitch / 4 + dedendum * Math.tan(params.pressureAngle) - clearance / 2);
+  const rootFillet = Math.min(params.module * 0.18, pitch * 0.055);
+  const topRelief = Math.min(params.module * 0.08, halfTop * 0.35);
   const start = -count * pitch / 2;
-  const points = [{ x: start, y: dedendum }];
+  const points = [];
+
+  const pushPoint = (point) => {
+    const last = points[points.length - 1];
+    if (!last || Math.hypot(last.x - point.x, last.y - point.y) > 0.001) {
+      points.push(point);
+    }
+  };
+
+  const inset = (from, to, amount) => {
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+    const ratio = Math.min(0.45, amount / Math.max(length, 0.001));
+    return {
+      x: from.x + (to.x - from.x) * ratio,
+      y: from.y + (to.y - from.y) * ratio
+    };
+  };
+
+  const roundedCorner = (previous, corner, next, amount, steps = 4) => {
+    const startPoint = inset(corner, previous, amount);
+    const endPoint = inset(corner, next, amount);
+    pushPoint(startPoint);
+    for (let step = 1; step < steps; step += 1) {
+      const t = step / steps;
+      const oneMinus = 1 - t;
+      pushPoint({
+        x: oneMinus * oneMinus * startPoint.x + 2 * oneMinus * t * corner.x + t * t * endPoint.x,
+        y: oneMinus * oneMinus * startPoint.y + 2 * oneMinus * t * corner.y + t * t * endPoint.y
+      });
+    }
+    pushPoint(endPoint);
+  };
+
+  pushPoint({ x: start, y: dedendum });
 
   for (let i = 0; i < count; i += 1) {
     const center = start + (i + 0.5) * pitch;
-    points.push(
-      { x: center - halfRoot, y: dedendum },
-      { x: center - halfTop, y: -addendum },
-      { x: center + halfTop, y: -addendum },
-      { x: center + halfRoot, y: dedendum }
-    );
+    const leftRoot = { x: center - halfRoot, y: dedendum };
+    const leftTop = { x: center - halfTop, y: -addendum };
+    const rightTop = { x: center + halfTop, y: -addendum };
+    const rightRoot = { x: center + halfRoot, y: dedendum };
+    const nextRoot = { x: center + pitch - halfRoot, y: dedendum };
+
+    roundedCorner({ x: leftRoot.x - pitch * 0.25, y: dedendum }, leftRoot, leftTop, rootFillet, 5);
+    roundedCorner(leftRoot, leftTop, rightTop, topRelief, 2);
+    roundedCorner(leftTop, rightTop, rightRoot, topRelief, 2);
+    roundedCorner(rightTop, rightRoot, nextRoot, rootFillet, 5);
   }
 
   points.push({ x: start + count * pitch, y: dedendum }, { x: start + count * pitch, y: dedendum + params.module * 3 });
